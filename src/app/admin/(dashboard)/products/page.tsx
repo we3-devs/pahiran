@@ -10,7 +10,13 @@ import { Badge, EmptyState } from "@/components/ui/misc";
 import { getAdminCategories, getAdminProducts } from "@/lib/data/admin";
 import { formatPrice } from "@/lib/format";
 
-type SearchParams = { q?: string; status?: string; category?: string; page?: string };
+type SearchParams = {
+  q?: string;
+  status?: string;
+  category?: string;
+  availability?: string;
+  page?: string;
+};
 
 export default async function AdminProductsPage({
   searchParams,
@@ -23,6 +29,10 @@ export default async function AdminProductsPage({
     params.status === "active" || params.status === "draft" || params.status === "featured"
       ? params.status
       : "all";
+  const availability =
+    params.availability === "in_stock" || params.availability === "out_of_stock"
+      ? params.availability
+      : "all";
 
   const [categories, result] = await Promise.all([
     getAdminCategories(),
@@ -30,6 +40,7 @@ export default async function AdminProductsPage({
       page,
       search: params.q?.trim() ?? "",
       status,
+      availability,
       categoryId: params.category ?? "",
     }),
   ]);
@@ -50,10 +61,11 @@ export default async function AdminProductsPage({
       </header>
 
       <ProductFilters
-        key={`${params.q ?? ""}-${status}-${params.category ?? ""}`}
+        key={`${params.q ?? ""}-${status}-${params.category ?? ""}-${availability}`}
         categories={categories}
         search={params.q ?? ""}
         status={status}
+        availability={availability}
         categoryId={params.category ?? ""}
       />
 
@@ -114,6 +126,7 @@ export default async function AdminProductsPage({
                 productName={product.name}
                 active={product.active}
                 featured={product.featured}
+                inStock={product.in_stock}
               />
             </li>
           ))}
@@ -127,6 +140,7 @@ export default async function AdminProductsPage({
         params={{
           q: params.q || undefined,
           status: status === "all" ? undefined : status,
+          availability: availability === "all" ? undefined : availability,
           category: params.category || undefined,
         }}
       />

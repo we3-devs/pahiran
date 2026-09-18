@@ -95,6 +95,7 @@ export default async function CategoryPage({
           <ProductGrid
             products={result.items}
             currencySymbol={settings.currency_symbol}
+            eager
             emptyTitle="No products found."
             emptyDescription="Try another category or browse the full collection."
           />

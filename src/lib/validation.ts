@@ -15,6 +15,7 @@ export type ProductInput = {
   colors: string[];
   featured: boolean;
   active: boolean;
+  inStock: boolean;
 };
 
 export type CategoryInput = {

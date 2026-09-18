@@ -44,6 +44,24 @@ export function parseList(value: string | null | undefined): string[] {
     .filter(Boolean);
 }
 
+/** Canonical ordering for letter sizes so filters read S, M, L, XL. */
+const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "2XL", "3XL", "4XL"];
+
+/**
+ * Orders the option values that exist in the catalogue: letter sizes in
+ * clothing order, then numeric sizes ascending, then anything else A–Z.
+ */
+export function sortOptionValues(values: string[]): string[] {
+  const rank = (value: string) => {
+    const index = SIZE_ORDER.indexOf(value.toUpperCase());
+    if (index >= 0) return index;
+    if (/^\d+(\.\d+)?$/.test(value.trim())) return SIZE_ORDER.length + Number(value);
+    return SIZE_ORDER.length + 1000 + value.charCodeAt(0);
+  };
+
+  return [...new Set(values)].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+}
+
 export function truncate(value: string, length = 160): string {
   if (value.length <= length) return value;
   return `${value.slice(0, length - 1).trimEnd()}…`;

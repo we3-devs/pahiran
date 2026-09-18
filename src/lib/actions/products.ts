@@ -27,6 +27,7 @@ function buildPayload(input: ProductFormValues) {
     colors: input.colors,
     featured: input.featured,
     active: input.active,
+    in_stock: input.inStock,
   };
 }
 
@@ -133,7 +134,7 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
 
 export async function setProductFlag(
   id: string,
-  field: "active" | "featured",
+  field: "active" | "featured" | "in_stock",
   value: boolean,
 ): Promise<ActionResult> {
   const guard = await requireAdminSession();

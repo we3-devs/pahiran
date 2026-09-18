@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import * as React from "react";
 
 import { Button, type ButtonProps } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export function AddToCartButton({
   variant?: ButtonProps["variant"];
   buttonSize?: ButtonProps["size"];
   className?: string;
+  /** True for out-of-stock products — the button then reads "Out of Stock". */
   disabled?: boolean;
   disabledReason?: string;
 }) {
@@ -42,6 +44,10 @@ export function AddToCartButton({
   const [justAdded, setJustAdded] = React.useState(false);
 
   const handleClick = () => {
+    // Guarded here as well as visually: an unavailable product can never be
+    // added, no matter how the click arrived.
+    if (disabled) return;
+
     addItem({
       productId: product.id,
       slug: product.slug,
@@ -53,21 +59,35 @@ export function AddToCartButton({
       color,
     });
 
-    toast("Added to cart");
+    toast("Added to cart", {
+      description: product.name,
+      action: { label: "View Cart", href: "/cart" },
+    });
+
     setJustAdded(true);
-    window.setTimeout(() => setJustAdded(false), 1600);
+    window.setTimeout(() => setJustAdded(false), 1800);
   };
 
   return (
     <Button
-      variant={variant}
+      variant={disabled ? "subtle" : variant}
       size={buttonSize}
       className={className}
       onClick={handleClick}
       disabled={disabled}
+      aria-disabled={disabled || undefined}
       title={disabled ? disabledReason : undefined}
     >
-      {justAdded ? "✓ Added" : label}
+      {disabled ? (
+        "Out of Stock"
+      ) : justAdded ? (
+        <>
+          <Check aria-hidden />
+          Added
+        </>
+      ) : (
+        label
+      )}
     </Button>
   );
 }

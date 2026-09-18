@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageCircle } from "lucide-react";
+import { AlertTriangle, LoaderCircle, MessageCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
@@ -8,9 +8,13 @@ import * as React from "react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { FieldError, Input, Label, Textarea } from "@/components/ui/input";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
+import { useToast } from "@/components/ui/toast";
+import { checkCartItems } from "@/lib/actions/cart";
+import { verifiedLineToCartItem } from "@/lib/cart/item";
 import { cartSubtotal, useCartStore } from "@/lib/cart/store";
+import { useCartAvailability } from "@/lib/cart/use-cart-availability";
 import { formatPrice } from "@/lib/format";
-import type { CheckoutDetails, StoreSettings } from "@/lib/types";
+import type { CartItem, CheckoutDetails, StoreSettings } from "@/lib/types";
 import { useIsHydrated } from "@/lib/use-hydrated";
 import { hasErrors, validateCheckout, type FieldErrors } from "@/lib/validation";
 import { buildWhatsappLink } from "@/lib/whatsapp";
@@ -18,14 +22,22 @@ import { cn } from "@/lib/utils";
 
 const EMPTY_DETAILS: CheckoutDetails = { fullName: "", phone: "", address: "", note: "" };
 
+const OUT_OF_STOCK_IN_CART =
+  "Some pieces in your cart are out of stock. Remove them from your cart and try again.";
+
 export function CheckoutForm({ settings }: { settings: StoreSettings }) {
   const items = useCartStore((state) => state.items);
   const clear = useCartStore((state) => state.clear);
   const hydrated = useIsHydrated();
+  const availability = useCartAvailability(items);
+  const { toast } = useToast();
+
   const [details, setDetails] = React.useState<CheckoutDetails>(EMPTY_DETAILS);
   const [errors, setErrors] = React.useState<FieldErrors>({});
+  const [formError, setFormError] = React.useState<string | null>(null);
   const [submittedLink, setSubmittedLink] = React.useState<string | null>(null);
   const [blockedLink, setBlockedLink] = React.useState<string | null>(null);
+  const [pending, startTransition] = React.useTransition();
 
   const openWhatsapp = (link: string) => {
     // Deliberately without "noopener": with it, window.open() always returns
@@ -44,11 +56,83 @@ export function CheckoutForm({ settings }: { settings: StoreSettings }) {
       setBlockedLink(link);
       return;
     }
+
     setBlockedLink(null);
     setSubmittedLink(link);
     // The order now lives in the customer's WhatsApp draft — empty the cart.
     clear();
   };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (pending) return;
+
+    const nextErrors = validateCheckout(details);
+    setErrors(nextErrors);
+    setFormError(null);
+
+    if (hasErrors(nextErrors)) {
+      document.getElementById(Object.keys(nextErrors)[0])?.focus();
+      return;
+    }
+
+    if (availability.unavailableCount > 0) {
+      setFormError(OUT_OF_STOCK_IN_CART);
+      return;
+    }
+
+    if (!buildWhatsappLink(items, details, settings)) {
+      setFormError(
+        "The store has not configured a WhatsApp number yet. Please get in touch another way.",
+      );
+      return;
+    }
+
+    startTransition(async () => {
+      // Re-check against the database one last time: the cart lives in
+      // localStorage, so this is the moment availability becomes enforceable.
+      const verified = await checkCartItems(
+        items.map((item) => ({
+          productId: item.productId,
+          size: item.size,
+          color: item.color,
+          quantity: item.quantity,
+        })),
+      );
+
+      let orderItems: CartItem[] = items;
+
+      if (verified.ok) {
+        if (verified.unavailableIds.length > 0) {
+          setFormError(OUT_OF_STOCK_IN_CART);
+          toast("Some items are out of stock", {
+            variant: "warning",
+            action: { label: "View Cart", href: "/cart" },
+          });
+          return;
+        }
+        // Build the message from database values — never from localStorage.
+        orderItems = verified.lines.map(verifiedLineToCartItem);
+      } else {
+        // The check itself failed (offline, server hiccup). We do not invent an
+        // error and we never claim the order was sent — we just proceed with the
+        // customer's own cart so ordering is not blocked by our infrastructure.
+        console.warn("[checkout] availability check unavailable, continuing with local cart.");
+      }
+
+      const link = buildWhatsappLink(orderItems, details, settings);
+      if (!link) {
+        setFormError(
+          "We could not open WhatsApp for this order. Please try again or contact the store directly.",
+        );
+        return;
+      }
+
+      openWhatsapp(link);
+    });
+  };
+
+  const blocked = availability.unavailableCount > 0;
 
   return (
     <div className="lg:grid lg:grid-cols-[1fr_360px] lg:items-start lg:gap-12">
@@ -91,30 +175,33 @@ export function CheckoutForm({ settings }: { settings: StoreSettings }) {
             }
           />
         ) : (
-          <form
-            noValidate
-            onSubmit={(event) => {
-              event.preventDefault();
-              const nextErrors = validateCheckout(details);
-              setErrors(nextErrors);
-              if (hasErrors(nextErrors)) {
-                document.getElementById(Object.keys(nextErrors)[0])?.focus();
-                return;
-              }
+          <form noValidate onSubmit={handleSubmit} className="space-y-6">
+            {blocked ? (
+              <div
+                role="alert"
+                className="flex flex-wrap items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-[13px] text-amber-950"
+              >
+                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold">
+                    {availability.unavailableCount === 1
+                      ? "This product is currently out of stock."
+                      : `${availability.unavailableCount} products are currently out of stock.`}
+                  </p>
+                  <p className="mt-1">
+                    Please remove{" "}
+                    {availability.unavailableCount === 1 ? "it" : "them"} before ordering.
+                  </p>
+                </div>
+                <Link
+                  href="/cart"
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "bg-canvas")}
+                >
+                  Go to cart
+                </Link>
+              </div>
+            ) : null}
 
-              const link = buildWhatsappLink(items, details, settings);
-              if (!link) {
-                setErrors({
-                  phone:
-                    "The store has not configured a WhatsApp number yet. Please contact us another way.",
-                });
-                return;
-              }
-
-              openWhatsapp(link);
-            }}
-            className="space-y-6"
-          >
             <div className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="fullName">
@@ -192,9 +279,20 @@ export function CheckoutForm({ settings }: { settings: StoreSettings }) {
               </div>
             </div>
 
+            {formError ? (
+              <p
+                role="alert"
+                className="rounded-lg border border-red-200 bg-red-50 p-3.5 text-[13px] font-medium text-red-700"
+              >
+                {formError}
+              </p>
+            ) : null}
+
             {blockedLink ? (
               <div role="alert" className="rounded-lg border border-line bg-surface p-4 text-sm">
-                <p className="font-medium text-ink">WhatsApp did not open automatically.</p>
+                <p className="font-medium text-ink">
+                  We could not open WhatsApp automatically.
+                </p>
                 <p className="mt-1 text-muted">
                   Tap the button below to open WhatsApp with your order message.
                 </p>
@@ -213,14 +311,29 @@ export function CheckoutForm({ settings }: { settings: StoreSettings }) {
               </div>
             ) : null}
 
-            <Button type="submit" variant="primary" size="lg" className="w-full sm:w-auto">
-              <MessageCircle aria-hidden />
-              Order via WhatsApp
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              className="w-full sm:w-auto"
+              disabled={pending || blocked}
+            >
+              {pending ? (
+                <>
+                  <LoaderCircle className="animate-spin" aria-hidden />
+                  Opening WhatsApp…
+                </>
+              ) : (
+                <>
+                  <MessageCircle aria-hidden />
+                  Order via WhatsApp
+                </>
+              )}
             </Button>
 
             <p className="text-[13px] text-muted">
-              No payment is taken on this website. Your order is sent as a WhatsApp message and we
-              confirm it with you directly.
+              No payment is taken on this website. Your order is sent as a WhatsApp message — press
+              Send there and we confirm it with you directly.
             </p>
           </form>
         )}
@@ -251,32 +364,47 @@ export function CheckoutForm({ settings }: { settings: StoreSettings }) {
         ) : (
           <>
             <ul className="mt-4 space-y-3">
-              {items.map((item) => (
-                <li key={item.key} className="flex gap-3">
-                  <div className="relative size-14 shrink-0 overflow-hidden rounded-md bg-canvas">
-                    {item.image ? (
-                      <Image
-                        src={item.image}
-                        alt={item.name}
-                        fill
-                        sizes="56px"
-                        className="object-cover"
-                      />
-                    ) : null}
-                  </div>
-                  <div className="min-w-0 flex-1 text-[13px]">
-                    <p className="truncate font-medium">{item.name}</p>
-                    <p className="text-muted">
-                      {item.quantity} × {formatPrice(item.price, settings.currency_symbol)}
-                      {item.size ? ` · ${item.size}` : ""}
-                      {item.color ? ` · ${item.color}` : ""}
+              {items.map((item) => {
+                const unavailable = availability.statusOf(item.productId) === "out_of_stock";
+
+                return (
+                  <li key={item.key} className="flex gap-3">
+                    <div
+                      className={cn(
+                        "relative size-14 shrink-0 overflow-hidden rounded-md bg-canvas",
+                        unavailable && "opacity-60",
+                      )}
+                    >
+                      {item.image ? (
+                        <Image
+                          src={item.image}
+                          alt={item.name}
+                          fill
+                          sizes="56px"
+                          className="object-cover"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="min-w-0 flex-1 text-[13px]">
+                      <p className="truncate font-medium">{item.name}</p>
+                      <p className="text-muted">
+                        {item.quantity} × {formatPrice(item.price, settings.currency_symbol)}
+                        {item.size ? ` · ${item.size}` : ""}
+                        {item.color ? ` · ${item.color}` : ""}
+                      </p>
+                      {unavailable ? (
+                        <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">
+                          <AlertTriangle className="size-3" aria-hidden />
+                          Out of stock
+                        </p>
+                      ) : null}
+                    </div>
+                    <p className="text-[13px] font-semibold">
+                      {formatPrice(item.price * item.quantity, settings.currency_symbol)}
                     </p>
-                  </div>
-                  <p className="text-[13px] font-semibold">
-                    {formatPrice(item.price * item.quantity, settings.currency_symbol)}
-                  </p>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
 
             <div className="mt-4 flex items-baseline justify-between border-t border-line pt-4">

@@ -49,6 +49,16 @@ message generation — and the admin panel shows a setup notice.
 
 5. Restart the dev server and sign in at `/admin/login`. Real content now replaces the demo data.
 
+### Updating a project that already has data
+
+`supabase/schema.sql` is idempotent, and that is also how you **update** an existing store: paste
+and run the whole file again whenever it changes. Every statement is `add column if not exists`,
+`create or replace` or `drop … if exists`, so existing rows are never touched.
+
+| Change | Needs re-running schema.sql | Without it |
+| --- | --- | --- |
+| Product availability (`products.in_stock`) and catalogue search (the `search_products` / `product_facets` functions) | Yes | The store still works: every product reads as in stock and search falls back to name + description. Colour, size and category search, the filter facets and the availability toggle need the file to be re-run. |
+
 ## 3. What the owner can change
 
 Everything customer-facing lives in the `store_settings` row and is editable at `/admin/settings`:
@@ -64,9 +74,11 @@ Everything customer-facing lives in the `store_settings` row and is editable at 
 | Social media | Facebook, Instagram, TikTok, YouTube |
 | SEO | SEO title and description |
 
-Products and categories are managed at `/admin/products` and `/admin/categories`. Nothing that the
-shop is expected to change regularly is hardcoded; code-level fallbacks exist only so the site
-still renders before Supabase is configured.
+Products and categories are managed at `/admin/products` and `/admin/categories`. Each product has
+an **availability** toggle (In stock / Out of stock) that can be set in the product form or flipped
+directly from the product list; out-of-stock products stay visible on the storefront, they just
+cannot be added to the cart. Nothing that the shop is expected to change regularly is hardcoded;
+code-level fallbacks exist only so the site still renders before Supabase is configured.
 
 ## 4. Routes
 
@@ -74,7 +86,7 @@ still renders before Supabase is configured.
 
 ```
 /                     hero, categories, featured collection, promo, about
-/shop                 all products, search, category filter, sorting, pagination
+/shop                 all products, search + filters, sorting, pagination
 /category/[slug]      one category
 /product/[slug]       gallery, size/colour/quantity, add to cart, related products
 /cart                 quantities, remove, totals (persisted in localStorage)
@@ -83,12 +95,30 @@ still renders before Supabase is configured.
 /sitemap.xml  /robots.txt
 ```
 
+Search and filter state lives in the URL, so a result set can be shared, bookmarked or refreshed:
+
+```
+/shop?q=shirt&category=men&size=M,L&color=Black&min=1000&max=3000&availability=in_stock&sort=price-asc&page=2
+```
+
+| Parameter | Values |
+| --- | --- |
+| `q` | free text — matches product name, description, category name, colours and sizes |
+| `category` | category slug |
+| `size`, `color` | comma-separated; a product matches when it has **any** of them |
+| `min`, `max` | price bounds |
+| `availability` | `in_stock` or `out_of_stock` |
+| `sort` | `featured` (default), `newest`, `price-asc`, `price-desc`, `name-asc` |
+| `page` | 1-based page number |
+
+Filtered and searched views are served `noindex` so only `/shop` itself competes in search results.
+
 **Admin** (`/admin` and everything below it is protected)
 
 ```
 /admin/login          Supabase email + password sign-in
 /admin                dashboard: counts, quick actions, setup checklist
-/admin/products       list, search/filter, inline active/featured toggles, delete with confirmation
+/admin/products       list, search/filter, inline availability + active/featured toggles, delete with confirmation
 /admin/products/new   add product
 /admin/products/[id]  edit product (same form component)
 /admin/categories     add/edit/delete, image, order, activate/deactivate
@@ -108,6 +138,10 @@ still renders before Supabase is configured.
    country code prefixed when needed.
 5. The customer presses **Send** in WhatsApp. If the browser blocks the popup, the page shows a
    fallback link instead of losing the order, and the cart is only cleared once WhatsApp opened.
+6. Before the link is built, the cart is re-checked against the database (`src/lib/actions/cart.ts`):
+   the message is composed from server-side names and prices, and anything that has gone out of
+   stock blocks the order instead of being silently included. The cart page shows the same state,
+   so a product that sells out after it was added is flagged rather than left orderable.
 
 ## 6. Security model
 
@@ -120,6 +154,9 @@ still renders before Supabase is configured.
   layout re-checks the session so no admin markup is rendered without one.
 - Product/category deletion removes only the images referenced by that record — the storage helper
   resolves paths inside the expected bucket and ignores anything else.
+- Product availability is enforced server-side: the checkout action re-reads every cart line, so an
+  out-of-stock product cannot be ordered by editing `localStorage`, and prices always come from the
+  database rather than the browser.
 - Deleting a category that still has products is blocked (in the UI and by a `restrict` foreign
   key) so products can never be orphaned by accident.
 

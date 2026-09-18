@@ -73,7 +73,11 @@ export function Hero({ settings }: { settings: StoreSettings }) {
               src={settings.hero_image as string}
               alt={title ?? settings.store_name}
               fill
-              priority
+              // Above the fold, so load it eagerly. `loading="eager"` rather
+              // than `preload`: for a `vw`-sized image the preloaded variant can
+              // differ from the one the browser picks, which wastes a download.
+              loading="eager"
+              data-probe="v2"
               sizes="(min-width: 1024px) 46vw, 100vw"
               className="object-cover"
             />

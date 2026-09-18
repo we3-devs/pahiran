@@ -1,0 +1,33 @@
+
+> clothing-store@0.1.0 dev
+> next dev --port 3000
+
+▲ Next.js 16.3.5 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://169.254.167.230:3000
+- Environments: .env
+✓ Ready in 871ms
+✓ Running next.config.ts took 65ms
+
+ GET / 200 in 1902ms (next.js: 330ms, application-code: 1572ms)
+ GET / 200 in 673ms (next.js: 9ms, application-code: 664ms)
+ GET / 200 in 591ms (next.js: 13ms, application-code: 578ms)
+ GET / 200 in 464ms (next.js: 22ms, application-code: 442ms)
+ GET / 200 in 438ms (next.js: 17ms, application-code: 422ms)
+ GET / 200 in 557ms (next.js: 8ms, application-code: 549ms)
+ GET /shop?size=M&color=Black 200 in 13.1s (next.js: 41ms, application-code: 13.1s)
+ GET /shop 200 in 17ms (next.js: 6ms, application-code: 11ms)
+ GET /shop 200 in 7.0s (next.js: 8ms, application-code: 7.0s)
+ GET /shop 200 in 370ms (next.js: 21ms, application-code: 350ms)
+ GET /shop 200 in 3.3s (next.js: 22ms, application-code: 3.3s)
+ GET /shop 200 in 421ms (next.js: 21ms, application-code: 400ms)
+ GET /shop 200 in 1051ms (next.js: 12ms, application-code: 1039ms)
+ GET /shop 200 in 339ms (next.js: 8ms, application-code: 332ms)
+ GET / 200 in 834ms (next.js: 12ms, application-code: 822ms)
+ GET / 200 in 916ms (next.js: 9ms, application-code: 907ms)
+ GET / 200 in 340ms (next.js: 17ms, application-code: 323ms)
+ GET / 200 in 316ms (next.js: 17ms, application-code: 299ms)
+ GET / 200 in 925ms (next.js: 6ms, application-code: 919ms)
+ GET /?bust=3742 200 in 797ms (next.js: 5ms, application-code: 792ms)
+ GET / 200 in 7.1s (next.js: 19ms, application-code: 7.1s)
+ GET /?probe=21372 200 in 610ms (next.js: 6ms, application-code: 604ms)

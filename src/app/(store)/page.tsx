@@ -58,7 +58,7 @@ export default async function HomePage() {
               description={settings.featured_description}
               action={{ label: "View All", href: "/shop" }}
             />
-            <ProductGrid products={featured} currencySymbol={settings.currency_symbol} />
+            <ProductGrid products={featured} currencySymbol={settings.currency_symbol} eager />
           </Container>
         </section>
       ) : null}

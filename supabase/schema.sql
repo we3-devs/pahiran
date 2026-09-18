@@ -1,7 +1,11 @@
 -- ============================================================================
---  Store schema: products + categories + store settings
+--  Store schema: products + categories + store settings + search
 --  Run this once in the Supabase SQL editor (or with `supabase db push`).
---  Safe to re-run: every statement is idempotent.
+--
+--  Safe to re-run — and that is also how you *update* an existing project:
+--  every statement is idempotent (`add column if not exists`, `create or
+--  replace`, `drop policy if exists`), so re-running applies whatever is new
+--  without touching your data. Re-run after every release that changes it.
 -- ============================================================================
 
 create extension if not exists "pgcrypto";
@@ -60,14 +64,22 @@ create table if not exists public.products (
   colors           text[] not null default '{}',
   featured         boolean not null default false,
   active           boolean not null default true,
+  -- Availability toggle (NOT inventory). Out-of-stock products stay published.
+  in_stock         boolean not null default true,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
+
+-- Added after the first release: existing projects pick the column up by
+-- re-running this file (the statement is a no-op once it exists).
+alter table public.products
+  add column if not exists in_stock boolean not null default true;
 
 create index if not exists products_category_idx on public.products (category_id);
 create index if not exists products_active_idx on public.products (active);
 create index if not exists products_created_idx on public.products (created_at desc);
 create index if not exists products_featured_idx on public.products (featured) where featured;
+create index if not exists products_in_stock_idx on public.products (in_stock);
 
 drop trigger if exists products_set_updated_at on public.products;
 create trigger products_set_updated_at
@@ -158,6 +170,127 @@ create trigger store_settings_set_updated_at
 
 -- Make sure the singleton row exists before the storefront queries it.
 insert into public.store_settings (id) values (1) on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Catalogue search, filtering and facets
+--   * `search_products` filters + searches + sorts + paginates in one query,
+--     so the browser never downloads the whole catalogue.
+--   * `product_facets` returns the option values that actually exist, which is
+--     what the shop filter panel renders.
+--   Both are `security invoker`, so RLS still applies to the caller.
+-- ---------------------------------------------------------------------------
+create or replace function public.search_products(
+  p_term         text default null,
+  p_category_id  uuid default null,
+  p_featured_only boolean default false,
+  p_sizes        text[] default null,
+  p_colors       text[] default null,
+  p_min_price    numeric default null,
+  p_max_price    numeric default null,
+  p_availability text default 'all',
+  p_sort         text default 'featured',
+  p_limit        integer default 12,
+  p_offset       integer default 0
+)
+returns table (
+  id               uuid,
+  name             text,
+  slug             text,
+  description      text,
+  price            numeric,
+  compare_at_price numeric,
+  category_id      uuid,
+  images           text[],
+  sizes            text[],
+  colors           text[],
+  featured         boolean,
+  active           boolean,
+  in_stock         boolean,
+  created_at       timestamptz,
+  updated_at       timestamptz,
+  category_name    text,
+  category_slug    text,
+  total_count      bigint
+)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  with filtered as (
+    select p.*, c.name as category_name, c.slug as category_slug
+    from public.products p
+    left join public.categories c on c.id = p.category_id
+    where p.active
+      and (not p_featured_only or p.featured)
+      and (p_category_id is null or p.category_id = p_category_id)
+      and (p_min_price is null or p.price >= p_min_price)
+      and (p_max_price is null or p.price <= p_max_price)
+      and (
+        p_availability is null
+        or p_availability = 'all'
+        or (p_availability = 'in_stock' and p.in_stock)
+        or (p_availability = 'out_of_stock' and not p.in_stock)
+      )
+      and (p_sizes is null or cardinality(p_sizes) = 0 or p.sizes && p_sizes)
+      and (p_colors is null or cardinality(p_colors) = 0 or p.colors && p_colors)
+      and (
+        p_term is null
+        or btrim(p_term) = ''
+        or p.name ilike '%' || btrim(p_term) || '%'
+        or coalesce(p.description, '') ilike '%' || btrim(p_term) || '%'
+        or coalesce(c.name, '') ilike '%' || btrim(p_term) || '%'
+        or exists (select 1 from unnest(p.sizes) as s where s ilike '%' || btrim(p_term) || '%')
+        or exists (select 1 from unnest(p.colors) as col where col ilike '%' || btrim(p_term) || '%')
+      )
+  )
+  select
+    f.id, f.name, f.slug, f.description, f.price, f.compare_at_price, f.category_id,
+    f.images, f.sizes, f.colors, f.featured, f.active, f.in_stock, f.created_at, f.updated_at,
+    f.category_name, f.category_slug,
+    count(*) over () as total_count
+  from filtered f
+  order by
+    case when p_sort = 'price-asc' then f.price end asc nulls last,
+    case when p_sort = 'price-desc' then f.price end desc nulls last,
+    case when p_sort = 'name-asc' then lower(f.name) end asc nulls last,
+    case when p_sort = 'featured' then (not f.featured)::int end asc nulls last,
+    case when p_sort in ('newest', 'featured') then f.created_at end desc nulls last,
+    lower(f.name) asc
+  limit greatest(coalesce(p_limit, 12), 0)
+  offset greatest(coalesce(p_offset, 0), 0);
+$$;
+
+create or replace function public.product_facets(p_category_id uuid default null)
+returns table (
+  sizes     text[],
+  colors    text[],
+  min_price numeric,
+  max_price numeric,
+  total     bigint
+)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  with available as (
+    select * from public.products
+    where active
+      and (p_category_id is null or category_id = p_category_id)
+  )
+  select
+    coalesce((select array_agg(distinct s) from available a, unnest(a.sizes) as s), '{}'),
+    coalesce((select array_agg(distinct c) from available a, unnest(a.colors) as c), '{}'),
+    (select min(price) from available),
+    (select max(price) from available),
+    (select count(*) from available);
+$$;
+
+grant execute on function public.search_products(
+  text, uuid, boolean, text[], text[], numeric, numeric, text, text, integer, integer
+) to anon, authenticated;
+grant execute on function public.product_facets(uuid) to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security

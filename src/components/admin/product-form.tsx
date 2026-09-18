@@ -16,6 +16,7 @@ import { BUCKETS, isSupabaseConfigured } from "@/lib/env";
 import { slugify } from "@/lib/format";
 import type { Category, Product } from "@/lib/types";
 import { hasErrors, validateProduct, type FieldErrors } from "@/lib/validation";
+import { cn } from "@/lib/utils";
 
 const SIZE_PRESETS = ["S", "M", "L", "XL", "XXL"];
 const COLOR_PRESETS = ["Black", "White", "Blue"];
@@ -32,6 +33,7 @@ type FormState = {
   colors: string[];
   active: boolean;
   featured: boolean;
+  inStock: boolean;
 };
 
 function initialState(product: Product | null, categories: Category[]): FormState {
@@ -48,6 +50,7 @@ function initialState(product: Product | null, categories: Category[]): FormStat
       colors: product.colors ?? [],
       active: product.active,
       featured: product.featured,
+      inStock: product.in_stock,
     };
   }
 
@@ -63,6 +66,7 @@ function initialState(product: Product | null, categories: Category[]): FormStat
     colors: [],
     active: true,
     featured: false,
+    inStock: true,
   };
 }
 
@@ -109,6 +113,7 @@ export function ProductForm({
     colors: form.colors,
     featured: form.featured,
     active: form.active,
+    inStock: form.inStock,
   });
 
   const handleSubmit = (event: React.FormEvent) => {
@@ -131,11 +136,13 @@ export function ProductForm({
       if (!result.ok) {
         setErrors(result.fieldErrors ?? {});
         setFormError(result.error);
-        toast(result.error);
+        toast(result.error, { variant: "error" });
         return;
       }
 
-      toast(product ? "Product updated" : "Product added");
+      toast(product ? "Product updated successfully" : "Product added successfully", {
+        description: form.name.trim(),
+      });
       router.push("/admin/products");
       router.refresh();
     });
@@ -297,6 +304,60 @@ export function ProductForm({
           placeholder="e.g. Rust"
           help="Leave empty if the product has no colour options."
         />
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="font-display text-lg">Availability</h2>
+
+        <div className="rounded-lg border border-line p-4">
+          <p className="text-sm font-medium">Is this product available?</p>
+          <p className="text-[13px] text-muted">
+            Out-of-stock products stay visible on the storefront — they just cannot be added to
+            the cart.
+          </p>
+
+          <div
+            role="radiogroup"
+            aria-label="Availability"
+            className="mt-3 inline-flex rounded-full border border-line p-1"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={form.inStock}
+              onClick={() => update("inStock", true)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-colors",
+                form.inStock ? "bg-ink text-canvas" : "text-ink hover:bg-surface",
+              )}
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "size-2 rounded-full",
+                  form.inStock ? "bg-emerald-400" : "bg-muted",
+                )}
+              />
+              In Stock
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!form.inStock}
+              onClick={() => update("inStock", false)}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-medium transition-colors",
+                !form.inStock ? "bg-ink text-canvas" : "text-ink hover:bg-surface",
+              )}
+            >
+              <span
+                aria-hidden
+                className={cn("size-2 rounded-full", !form.inStock ? "bg-red-400" : "bg-muted")}
+              />
+              Out of Stock
+            </button>
+          </div>
+        </div>
       </section>
 
       <section className="space-y-4">

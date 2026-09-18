@@ -13,6 +13,7 @@ export function QuantityStepper({
   label = "Quantity",
   className,
   compact = false,
+  unavailable = false,
 }: {
   quantity: number;
   onChange: (quantity: number) => void;
@@ -21,6 +22,8 @@ export function QuantityStepper({
   label?: string;
   className?: string;
   compact?: boolean;
+  /** Out-of-stock lines keep their quantity visible but cannot be changed. */
+  unavailable?: boolean;
 }) {
   const buttonClass = cn(
     "inline-flex items-center justify-center text-ink transition-colors hover:bg-surface disabled:opacity-40",
@@ -37,7 +40,7 @@ export function QuantityStepper({
       <button
         type="button"
         onClick={() => onChange(quantity - 1)}
-        disabled={quantity <= min}
+        disabled={quantity <= min || unavailable}
         aria-label={`Decrease ${label.toLowerCase()}`}
         className={buttonClass}
       >
@@ -55,7 +58,7 @@ export function QuantityStepper({
       <button
         type="button"
         onClick={() => onChange(quantity + 1)}
-        disabled={quantity >= max}
+        disabled={quantity >= max || unavailable}
         aria-label={`Increase ${label.toLowerCase()}`}
         className={buttonClass}
       >

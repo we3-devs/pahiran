@@ -16,6 +16,16 @@ export default async function AdminDashboardPage() {
     { label: "Featured products", value: stats.featured, href: "/admin/products?status=featured" },
   ];
 
+  // Only surfaces when it matters: out-of-stock products are still visible on
+  // the storefront, so they are easy to forget about.
+  if (stats.outOfStock > 0) {
+    cards.push({
+      label: "Out of stock",
+      value: stats.outOfStock,
+      href: "/admin/products?availability=out_of_stock",
+    });
+  }
+
   const checklist = [
     {
       label: "Add your WhatsApp number",

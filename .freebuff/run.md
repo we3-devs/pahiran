@@ -18,11 +18,20 @@ A fresh checkout needs two things before the dev server will start:
 
 ## Run the dev server (detached, survives the conversation)
 
-Port note: Next 16 auto-selects a free port if it thinks the default is taken by a stale
-dev-server lock, so read the actual "Local:" URL from the log before registering.
+Port notes (all learned the hard way on this machine):
+
+- **Always pass `--port 3000`.** Without it this Next 16 build picks a *random* free port
+  (`npm run dev` alone produced 50095, 51403 and 57237 in one session).
+- If a previous server was killed with `Stop-Process -Force`, its `.next/dev/lock` survives and the
+  next start fails with *"Another next dev server is already running"* (or silently falls back to
+  another port). Delete the lock first: `rm -f .next/dev/lock`.
+- Only one dev server may run per directory, so temporarily swapping environments (e.g. to preview
+  the bundled demo catalogue with empty Supabase keys) requires stopping the running server first.
+- Read the actual `Local:` line from the log and confirm with `netstat -ano | grep ":3000"` before
+  registering the preview.
 
 ```powershell
-powershell -NoProfile -Command "(Start-Process -FilePath 'npm.cmd' -ArgumentList 'run','dev' -RedirectStandardOutput '.freebuff\<preview-log>.log' -RedirectStandardError '.freebuff\<preview-log>.log.err' -WindowStyle Hidden -PassThru).Id"
+powershell -NoProfile -Command "(Start-Process -FilePath 'npm.cmd' -ArgumentList 'run','dev','--','--port','3000' -RedirectStandardOutput '.freebuff\<preview-log>.log' -RedirectStandardError '.freebuff\<preview-log>.log.err' -WindowStyle Hidden -PassThru).Id"
 ```
 
 - `npm.cmd` must be named exactly — Start-Process does not resolve shell shims.
@@ -35,6 +44,16 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:<port>/
 ```
 
 Production check (optional): `npm run build` then `npm run start -- --port 3000`.
+
+Note on re-registering a preview: `register_preview` with `replace: true` stops the currently
+registered server. If that server was started by hand it comes back dead — restart it with the
+recipe above before registering again. When the previous preview is already released, a plain
+registration (no `replace`) is enough.
+
+Environment: `.env` holds the real Supabase project keys. Emptying
+`NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` switches the app to the bundled demo
+catalogue, which is the only way to exercise the out-of-stock UI (demo data ships one
+out-of-stock product).
 
 Useful routes: `/` `/shop` `/product/premium-cotton-t-shirt` `/cart` `/checkout`
 `/admin` (redirects to `/admin/login` until Supabase auth is configured).

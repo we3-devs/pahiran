@@ -99,6 +99,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
                     {product.category.name}
                   </Link>
                 ) : null}
+                {!product.in_stock ? <Badge tone="dark">Out of stock</Badge> : null}
                 {discount !== null ? <Badge tone="sale">-{discount}%</Badge> : null}
                 {product.featured ? <Badge tone="brand">Featured</Badge> : null}
               </div>

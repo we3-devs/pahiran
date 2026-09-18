@@ -26,6 +26,11 @@ export type Product = {
   colors: string[];
   featured: boolean;
   active: boolean;
+  /**
+   * Availability toggle — deliberately not inventory. Out-of-stock products
+   * stay published and browsable, they just cannot be added to the cart.
+   */
+  in_stock: boolean;
   created_at: string;
   updated_at: string;
   /** Populated by joined reads (product detail, admin tables). */
@@ -116,6 +121,36 @@ export type CartItem = {
   quantity: number;
   size: string | null;
   color: string | null;
+};
+
+/**
+ * Availability of a cart line, re-checked against the database.
+ * `unknown` means we could not reach the database — the cart keeps working,
+ * checkout is not blocked on it.
+ */
+export type CartLineStatus = "ok" | "out_of_stock" | "gone";
+
+/** A cart line confirmed against the database (prices/names are authoritative). */
+export type VerifiedCartLine = {
+  productId: string;
+  slug: string;
+  name: string;
+  price: number;
+  image: string | null;
+  quantity: number;
+  size: string | null;
+  color: string | null;
+};
+
+/** What the storefront search offers as the customer types. */
+export type SearchSuggestion = {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  image: string | null;
+  category: string | null;
+  in_stock: boolean;
 };
 
 export type CheckoutDetails = {

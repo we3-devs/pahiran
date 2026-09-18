@@ -47,9 +47,10 @@ export function productJsonLd(product: ProductWithCategory, settings: StoreSetti
       "@type": "Offer",
       price: product.price,
       priceCurrency: settings.currency_code || "NPR",
-      availability: product.active
-        ? "https://schema.org/InStock"
-        : "https://schema.org/OutOfStock",
+      availability:
+        product.active && product.in_stock
+          ? "https://schema.org/InStock"
+          : "https://schema.org/OutOfStock",
       url: absoluteUrl(`/product/${product.slug}`),
     },
   };

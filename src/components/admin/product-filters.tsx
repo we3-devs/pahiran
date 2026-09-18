@@ -20,11 +20,13 @@ export function ProductFilters({
   categories,
   search,
   status,
+  availability,
   categoryId,
 }: {
   categories: Pick<Category, "id" | "name">[];
   search: string;
   status: string;
+  availability: string;
   categoryId: string;
 }) {
   const router = useRouter();
@@ -40,7 +42,7 @@ export function ProductFilters({
         onSubmit={(event) => {
           event.preventDefault();
           router.push(
-            `/admin/products${buildQuery({ q: term, status, category: categoryId })}`,
+            `/admin/products${buildQuery({ q: term, status, availability, category: categoryId })}`,
           );
         }}
       >
@@ -74,6 +76,7 @@ export function ProductFilters({
                 `/admin/products${buildQuery({
                   q: search,
                   status: event.target.value,
+                  availability,
                   category: categoryId,
                 })}`,
               )
@@ -83,6 +86,31 @@ export function ProductFilters({
             <option value="active">Active only</option>
             <option value="draft">Hidden only</option>
             <option value="featured">Featured only</option>
+          </Select>
+        </div>
+
+        <div>
+          <label htmlFor="admin-availability" className="sr-only">
+            Filter by availability
+          </label>
+          <Select
+            id="admin-availability"
+            value={availability}
+            className="h-10 w-auto min-w-36"
+            onChange={(event) =>
+              router.push(
+                `/admin/products${buildQuery({
+                  q: search,
+                  status,
+                  availability: event.target.value,
+                  category: categoryId,
+                })}`,
+              )
+            }
+          >
+            <option value="all">Any availability</option>
+            <option value="in_stock">In stock only</option>
+            <option value="out_of_stock">Out of stock only</option>
           </Select>
         </div>
 
@@ -99,6 +127,7 @@ export function ProductFilters({
                 `/admin/products${buildQuery({
                   q: search,
                   status,
+                  availability,
                   category: event.target.value,
                 })}`,
               )

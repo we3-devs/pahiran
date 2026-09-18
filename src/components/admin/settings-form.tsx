@@ -94,10 +94,12 @@ export function SettingsForm({ settings }: { settings: StoreSettings }) {
       if (!result.ok) {
         setErrors(result.fieldErrors ?? {});
         setFormError(result.error);
-        toast(result.error);
+        toast(result.error, { variant: "error" });
         return;
       }
-      toast("Settings saved");
+      toast("Store settings updated", {
+        description: "The storefront now shows your changes.",
+      });
       router.refresh();
     });
   };

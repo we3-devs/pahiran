@@ -1,0 +1,2 @@
+[products] search_products() is missing — re-run supabase/schema.sql for full-text search across colours, sizes and categories. Using the simpler query for now.
+[products] this database has no `in_stock` column yet — re-run supabase/schema.sql. Every product is treated as in stock until then.

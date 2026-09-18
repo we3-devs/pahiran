@@ -16,15 +16,17 @@ import { cn } from "@/lib/utils";
 export function ProductCard({
   product,
   currencySymbol = "Rs.",
-  priority = false,
+  eager = false,
   className,
 }: {
   product: ProductWithCategory;
   currencySymbol?: string;
-  priority?: boolean;
+  /** Load eagerly: only for cards that are above the fold. */
+  eager?: boolean;
   className?: string;
 }) {
   const [primary, secondary] = product.images ?? [];
+  const available = product.in_stock;
   const requiresOptions = (product.sizes?.length ?? 0) > 0 || (product.colors?.length ?? 0) > 0;
   const discount = discountPercent(product.price, product.compare_at_price);
   const isNew = isNewProduct(product.created_at);
@@ -37,7 +39,10 @@ export function ProductCard({
             src={primary}
             alt={product.name}
             fill
-            priority={priority}
+            // `loading="eager"` rather than `preload`: the correct preload
+            // variant depends on the viewport, so Next can only guess at it and
+            // frequently preloads a size the browser never uses.
+            loading={eager ? "eager" : "lazy"}
             sizes="(min-width: 1280px) 22vw, (min-width: 768px) 33vw, 50vw"
             className={cn(
               "object-cover transition-all duration-500",
@@ -65,7 +70,17 @@ export function ProductCard({
           <span className="sr-only">View {product.name}</span>
         </Link>
 
-        <div className="pointer-events-none absolute top-3 left-3 z-20 flex flex-col items-start gap-1.5">
+        {/* Out of stock stays visible and discoverable — the image is dimmed,
+            never hidden or replaced. */}
+        {!available ? (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-canvas/60">
+            <span className="rounded-full bg-ink px-3 py-1.5 text-[11px] font-semibold tracking-[0.14em] uppercase text-canvas">
+              Out of Stock
+            </span>
+          </div>
+        ) : null}
+
+        <div className="pointer-events-none absolute top-3 left-3 z-30 flex flex-col items-start gap-1.5">
           {discount !== null ? <Badge tone="sale">-{discount}%</Badge> : null}
           {isNew ? <Badge tone="dark">New</Badge> : null}
           {product.featured && discount === null && !isNew ? (
@@ -86,16 +101,40 @@ export function ProductCard({
         ) : null}
 
         <p className="mt-1 flex items-center gap-2 text-[15px]">
-          <span className="font-semibold">{formatPrice(product.price, currencySymbol)}</span>
+          <span className={cn("font-semibold", !available && "text-muted")}>
+            {formatPrice(product.price, currencySymbol)}
+          </span>
           {discount !== null && product.compare_at_price ? (
             <span className="text-sm text-muted line-through">
               {formatPrice(product.compare_at_price, currencySymbol)}
             </span>
           ) : null}
+          {!available ? (
+            <span className="text-[12px] font-medium tracking-wide uppercase text-muted">
+              Out of stock
+            </span>
+          ) : null}
         </p>
 
+        {/* Actions are always visible — nothing important hides behind hover,
+            which matters on touch screens. */}
         <div className="mt-3">
-          {requiresOptions ? (
+          {!available ? (
+            <AddToCartButton
+              variant="outline"
+              buttonSize="sm"
+              className="w-full"
+              disabled
+              disabledReason="This piece is currently out of stock. Open the product to see the details."
+              product={{
+                id: product.id,
+                slug: product.slug,
+                name: product.name,
+                price: product.price,
+                image: primary ?? null,
+              }}
+            />
+          ) : requiresOptions ? (
             <Link
               href={`/product/${product.slug}`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full")}

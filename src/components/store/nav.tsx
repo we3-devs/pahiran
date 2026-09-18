@@ -1,11 +1,12 @@
 "use client";
 
-import { Menu, ShoppingBag, X } from "lucide-react";
+import { Menu, Search, ShoppingBag, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
 
 import { cartCount, useCartStore } from "@/lib/cart/store";
+import { openSearch } from "@/lib/search-store";
 import type { Category } from "@/lib/types";
 import { useIsHydrated } from "@/lib/use-hydrated";
 import { cn } from "@/lib/utils";
@@ -42,7 +43,7 @@ export function DesktopNav({ categories }: { categories: NavCategory[] }) {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Main" className="hidden items-center gap-7 lg:flex">
+    <nav aria-label="Main" className="hidden items-center gap-6 xl:flex">
       {navItems(categories).map((item) => (
         <Link
           key={item.href}
@@ -127,13 +128,13 @@ export function MobileNav({ categories }: { categories: NavCategory[] }) {
         aria-expanded={open}
         aria-controls="mobile-nav"
         aria-label={open ? "Close menu" : "Open menu"}
-        className="inline-flex size-10 items-center justify-center rounded-full text-ink transition-colors hover:bg-surface lg:hidden"
+        className="inline-flex size-10 items-center justify-center rounded-full text-ink transition-colors hover:bg-surface xl:hidden"
       >
         <Menu className="size-5" aria-hidden />
       </button>
 
       {open ? (
-        <div className="fixed inset-0 z-[70] lg:hidden">
+        <div className="fixed inset-0 z-[70] xl:hidden">
           <div className="absolute inset-0 backdrop-blur-xs" onClick={() => setOpen(false)} aria-hidden />
           <div
             id="mobile-nav"
@@ -162,7 +163,19 @@ export function MobileNav({ categories }: { categories: NavCategory[] }) {
               </button>
             </div>
 
-            <nav aria-label="Mobile" className="flex bg-canvas flex-col">
+            <nav aria-label="Mobile" className="flex flex-col bg-canvas">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  openSearch();
+                }}
+                className="flex items-center gap-3 border-b border-line px-5 py-4 text-left text-base font-medium text-ink"
+              >
+                <Search className="size-4 text-muted" aria-hidden />
+                Search products
+              </button>
+
               {navItems(categories).map((item) => (
                 <Link
                   key={item.href}
@@ -181,10 +194,6 @@ export function MobileNav({ categories }: { categories: NavCategory[] }) {
                 </Link>
               ))}
             </nav>
-{/* 
-            <div className="mt-auto pt-6">
-              <CartLink />
-            </div> */}
           </div>
         </div>
       ) : null}

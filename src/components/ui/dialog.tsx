@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { LoaderCircle, X } from "lucide-react";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -105,6 +105,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Delete",
   cancelLabel = "Cancel",
+  pendingLabel = "Working…",
   onConfirm,
   pending,
   destructive = true,
@@ -115,6 +116,8 @@ export function ConfirmDialog({
   description?: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Label while the action runs, e.g. "Deleting…". */
+  pendingLabel?: string;
   onConfirm: () => void;
   pending?: boolean;
   destructive?: boolean;
@@ -135,7 +138,14 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={pending}
           >
-            {pending ? "Working…" : confirmLabel}
+            {pending ? (
+              <>
+                <LoaderCircle className="animate-spin" aria-hidden />
+                {pendingLabel}
+              </>
+            ) : (
+              confirmLabel
+            )}
           </Button>
         </>
       }

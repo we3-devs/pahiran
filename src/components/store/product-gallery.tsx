@@ -27,7 +27,7 @@ export function ProductGallery({ images, name }: { images: string[]; name: strin
           src={current}
           alt={name}
           fill
-          priority
+          loading="eager"
           sizes="(min-width: 1024px) 46vw, 100vw"
           className="animate-fade-in object-cover"
         />

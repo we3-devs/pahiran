@@ -12,7 +12,7 @@ export function ProductGrid({
   emptyTitle = "No products found.",
   emptyDescription = "Try another category or browse the full collection.",
   className,
-  priority = false,
+  eager = false,
 }: {
   products: ProductWithCategory[];
   currencySymbol?: string;
@@ -20,7 +20,7 @@ export function ProductGrid({
   emptyDescription?: string;
   className?: string;
   /** Only set this for grids that render above the fold. */
-  priority?: boolean;
+  eager?: boolean;
 }) {
   if (products.length === 0) {
     return (
@@ -43,12 +43,13 @@ export function ProductGrid({
         className,
       )}
     >
-      {products.map((product) => (
+      {products.map((product, index) => (
         <ProductCard
           key={product.id}
           product={product}
           currencySymbol={currencySymbol}
-          priority={priority}
+          // Only the first row is above the fold — it is the LCP candidate.
+          eager={eager && index < 4}
         />
       ))}
     </div>

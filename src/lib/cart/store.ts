@@ -3,7 +3,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { cartItemKey, clampQuantity, MAX_QUANTITY } from "@/lib/cart/item";
 import type { CartItem } from "@/lib/types";
+
+export { cartItemKey, MAX_QUANTITY } from "@/lib/cart/item";
 
 export type NewCartItem = Omit<CartItem, "key">;
 
@@ -16,16 +19,6 @@ type CartState = {
   decrement: (key: string) => void;
   clear: () => void;
 };
-
-export function cartItemKey(item: {
-  productId: string;
-  size?: string | null;
-  color?: string | null;
-}): string {
-  return `${item.productId}::${item.size ?? ""}::${item.color ?? ""}`;
-}
-
-export const MAX_QUANTITY = 20;
 
 /** Cart is client-only and persisted in localStorage — never stored in Supabase. */
 export const useCartStore = create<CartState>()(
@@ -42,24 +35,32 @@ export const useCartStore = create<CartState>()(
             return {
               items: state.items.map((entry) =>
                 entry.key === key
-                  ? { ...entry, quantity: Math.min(MAX_QUANTITY, entry.quantity + item.quantity) }
+                  ? {
+                      ...entry,
+                      quantity: Math.min(MAX_QUANTITY, entry.quantity + item.quantity),
+                      // Keep the freshest name/price the storefront knows about.
+                      name: item.name,
+                      price: item.price,
+                      image: item.image,
+                      slug: item.slug,
+                    }
                   : entry,
               ),
             };
           }
 
-          return { items: [...state.items, { ...item, key }] };
+          return { items: [...state.items, { ...item, key, quantity: clampQuantity(item.quantity) }] };
         }),
 
       removeItem: (key) => set((state) => ({ items: state.items.filter((item) => item.key !== key) })),
 
+      // Quantities never drop below 1 here: removing a line is always an
+      // explicit action (`removeItem`), never a side effect of tapping "−".
       setQuantity: (key, quantity) =>
         set((state) => ({
-          items: state.items.flatMap((item) => {
-            if (item.key !== key) return [item];
-            const next = Math.min(MAX_QUANTITY, Math.max(0, Math.floor(quantity)));
-            return next === 0 ? [] : [{ ...item, quantity: next }];
-          }),
+          items: state.items.map((item) =>
+            item.key === key ? { ...item, quantity: clampQuantity(quantity) } : item,
+          ),
         })),
 
       increment: (key) =>
@@ -73,11 +74,9 @@ export const useCartStore = create<CartState>()(
 
       decrement: (key) =>
         set((state) => ({
-          items: state.items.flatMap((item) => {
-            if (item.key !== key) return [item];
-            const next = item.quantity - 1;
-            return next <= 0 ? [] : [{ ...item, quantity: next }];
-          }),
+          items: state.items.map((item) =>
+            item.key === key ? { ...item, quantity: clampQuantity(item.quantity - 1) } : item,
+          ),
         })),
 
       clear: () => set({ items: [] }),

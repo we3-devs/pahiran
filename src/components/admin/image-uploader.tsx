@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, ImagePlus, LoaderCircle, X } from "lucide-react"
 import Image from "next/image";
 import * as React from "react";
 
+import { useToast } from "@/components/ui/toast";
 import { formatFileSize, compressImage } from "@/lib/image";
 import { createFolder, type Bucket } from "@/lib/storage-paths";
 import { getBrowserClient } from "@/lib/supabase/client";
@@ -38,9 +39,11 @@ export function ImageUploader({
   invalid,
 }: Props) {
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
   const [uploading, setUploading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [note, setNote] = React.useState<string | null>(null);
+  const [progress, setProgress] = React.useState<{ done: number; total: number } | null>(null);
 
   const limit = single ? 1 : max;
 
@@ -63,12 +66,16 @@ export function ImageUploader({
     setUploading(true);
     setError(null);
     setNote(null);
+    setProgress({ done: 0, total: selected.length });
 
     const folder = createFolder(folderPrefix);
     const uploaded: string[] = [];
     let savedBytes = 0;
+    let failed = 0;
 
-    for (const file of selected) {
+    for (const [index, file] of selected.entries()) {
+      setProgress({ done: index, total: selected.length });
+
       try {
         const compressed = await compressImage(file);
         savedBytes += Math.max(0, file.size - compressed.size);
@@ -80,19 +87,41 @@ export function ImageUploader({
 
         if (uploadError || !data) {
           console.error("[upload] failed:", uploadError?.message);
-          setError("Upload failed. Please try again.");
+          failed += 1;
+          setProgress({ done: index + 1, total: selected.length });
           continue;
         }
 
         uploaded.push(supabase.storage.from(bucket).getPublicUrl(data.path).data.publicUrl);
       } catch (uploadError) {
         console.error("[upload] unexpected error:", uploadError);
-        setError("Upload failed. Please try again.");
+        failed += 1;
       }
+
+      setProgress({ done: index + 1, total: selected.length });
     }
 
-    if (uploaded.length > 0) onChange([...value, ...uploaded].slice(0, limit));
+    if (uploaded.length > 0) {
+      onChange([...value, ...uploaded].slice(0, limit));
+      toast(uploaded.length === 1 ? "Image uploaded" : `${uploaded.length} images uploaded`, {
+        description:
+          savedBytes > 50 * 1024
+            ? `Optimised in your browser — saved ${formatFileSize(savedBytes)}.`
+            : undefined,
+      });
+    }
+
+    if (failed > 0) {
+      const message =
+        failed === 1
+          ? "Image upload failed. Please try again."
+          : `${failed} images failed to upload. Please try again.`;
+      setError(message);
+      toast(message, { variant: "error" });
+    }
+
     if (savedBytes > 50 * 1024) setNote(`Images optimised — saved ${formatFileSize(savedBytes)}.`);
+    setProgress(null);
     setUploading(false);
     if (inputRef.current) inputRef.current.value = "";
   };
@@ -204,6 +233,12 @@ export function ImageUploader({
           onChange={(event) => handleFiles(event.target.files)}
         />
       </div>
+
+      {uploading && progress ? (
+        <p className="text-[12px] text-muted" role="status">
+          Uploading image {Math.min(progress.done + 1, progress.total)} of {progress.total}…
+        </p>
+      ) : null}
 
       {help ? <p className="text-[12px] text-muted">{help}</p> : null}
       {note ? <p className="text-[12px] text-brand">{note}</p> : null}

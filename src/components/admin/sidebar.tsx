@@ -71,6 +71,24 @@ export function AdminSidebar({
   const open = openedOn === pathname;
   const setOpen = (value: boolean) => setOpenedOn(value ? pathname : null);
 
+  React.useEffect(() => {
+    if (!open) return;
+    // Same scroll lock as the storefront drawer: the page behind stays put.
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previous;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setOpen is a stable inline helper
+  }, [open]);
+
   return (
     <>
       {/* Desktop sidebar */}

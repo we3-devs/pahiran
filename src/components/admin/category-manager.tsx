@@ -85,9 +85,12 @@ function CategoryForm({
       if (!result.ok) {
         setErrors(result.fieldErrors ?? {});
         setFormError(result.error);
+        toast(result.error, { variant: "error" });
         return;
       }
-      toast(category ? "Category updated" : "Category added");
+      toast(category ? "Category updated successfully" : "Category added successfully", {
+        description: values.name.trim(),
+      });
       onSaved();
     });
   };
@@ -220,10 +223,10 @@ export function CategoryManager({
       const result = await deleteCategory(id);
       setDeleteTarget(null);
       if (!result.ok) {
-        toast(result.error);
+        toast(result.error, { variant: "error" });
         return;
       }
-      toast("Category deleted");
+      toast("Category deleted", { description: deleteTarget.name });
       router.refresh();
     });
   };
@@ -232,9 +235,13 @@ export function CategoryManager({
     startTransition(async () => {
       const result = await setCategoryActive(category.id, value);
       if (!result.ok) {
-        toast(result.error);
+        toast(result.error, { variant: "error" });
         return;
       }
+      toast(value ? "Category is now visible" : "Category hidden from the storefront", {
+        description: category.name,
+        variant: value ? "success" : "info",
+      });
       router.refresh();
     });
   };
@@ -315,6 +322,7 @@ export function CategoryManager({
                       if (productCount > 0) {
                         toast(
                           `Move the ${productCount} product${productCount === 1 ? "" : "s"} in “${category.name}” to another category first.`,
+                          { variant: "warning" },
                         );
                         return;
                       }
@@ -362,6 +370,8 @@ export function CategoryManager({
             ? `“${deleteTarget.name}” will be removed. This action cannot be undone.`
             : undefined
         }
+        confirmLabel="Delete Category"
+        pendingLabel="Deleting…"
         onConfirm={handleDelete}
         pending={pending}
       />
