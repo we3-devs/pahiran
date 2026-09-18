@@ -1,0 +1,42 @@
+
+> clothing-store@0.1.0 dev
+> next dev
+
+▲ Next.js 16.3.5 (Turbopack)
+- Local:         http://localhost:63433
+- Network:       http://169.254.167.230:63433
+- Environments: .env
+✓ Ready in 779ms
+✓ Running next.config.ts took 54ms
+
+ GET / 200 in 1333ms (next.js: 252ms, application-code: 1081ms)
+ GET / 200 in 589ms (next.js: 10ms, application-code: 580ms)
+ GET / 200 in 498ms (next.js: 9ms, application-code: 489ms)
+ GET / 200 in 1065ms (next.js: 53ms, application-code: 1013ms)
+ GET /shop 200 in 523ms (next.js: 44ms, application-code: 480ms)
+ GET /product/premium-cotton-t-shirt 200 in 1636ms (next.js: 47ms, generate-params: 1089ms, application-code: 500ms)
+ GET /cart 200 in 288ms (next.js: 37ms, application-code: 251ms)
+ GET /checkout 200 in 247ms (next.js: 34ms, application-code: 213ms)
+ GET /shop 200 in 565ms (next.js: 8ms, application-code: 557ms)
+ GET / 200 in 493ms (next.js: 12ms, application-code: 481ms)
+ GET /about 200 in 686ms (next.js: 29ms, application-code: 657ms)
+ GET /about 200 in 90ms (next.js: 21ms, application-code: 69ms)
+ GET / 200 in 748ms (next.js: 18ms, application-code: 730ms)
+ GET /about 200 in 13.9s (next.js: 6ms, application-code: 13.9s)
+ GET / 200 in 868ms (next.js: 9ms, application-code: 859ms)
+ GET / 200 in 14ms (next.js: 6ms, application-code: 9ms)
+ GET / 200 in 474ms (next.js: 6ms, application-code: 468ms)
+ GET / 200 in 556ms (next.js: 5ms, application-code: 551ms)
+ GET / 200 in 15ms (next.js: 6ms, application-code: 8ms)
+ GET / 200 in 4.1s (next.js: 6ms, application-code: 4.1s)
+ GET /shop 200 in 475ms (next.js: 15ms, application-code: 460ms)
+ GET /shop 200 in 503ms (next.js: 7ms, application-code: 496ms)
+✓ Compiled in 261ms
+✓ Compiled in 128ms
+ GET /shop 200 in 446ms (next.js: 29ms, application-code: 417ms)
+ GET /shop 200 in 327ms (next.js: 36ms, application-code: 291ms)
+ GET /shop 200 in 1262ms (next.js: 154ms, application-code: 1108ms)
+ GET /shop 200 in 1565ms (next.js: 96ms, application-code: 1469ms)
+ GET / 200 in 576ms (next.js: 17ms, application-code: 559ms)
+ GET / 200 in 828ms (next.js: 9ms, application-code: 819ms)
+[?25h
